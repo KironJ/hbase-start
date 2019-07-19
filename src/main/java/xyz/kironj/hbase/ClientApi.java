@@ -1,5 +1,6 @@
 package xyz.kironj.hbase;
 
+import xyz.kironj.hbase.common.RandomValue;
 import xyz.kironj.hbase.entities.User;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.*;
@@ -9,21 +10,26 @@ import org.apache.hadoop.hbase.util.Bytes;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import static xyz.kironj.hbase.common.RandomValue.getProfile;
 
 public class ClientApi {
 
     private static Admin admin;
-    
-    public static final String TABLE_NAME = "kirin_user_table";
+
+    private static final String TABLE_NAME = "kirin_user_table";
 
     private static Connection HBASE_CONNECTION = null;
 
-    public static void main(String[] args){
+    public static void main(String[] args) throws IOException {
+        runExercise();
+    }
 
-        try {
+    public static void runExercise() throws IOException {
             HBASE_CONNECTION = initHbase();
             TableName tableName = TableName.valueOf(TABLE_NAME);
-            String [] cols = new String[] {"cf1"};
+            String[] cols = new String[]{"cf1"};
             admin = HBASE_CONNECTION.getAdmin();
             if (admin.tableExists(tableName)) {
                 System.out.println("表已存在！");
@@ -35,65 +41,55 @@ public class ClientApi {
                 }
                 admin.createTable(hTableDescriptor);
             }
-            User user = new User("001", "xiaoMing", "man", "20", "13355550021", "1232821@csdn.com");
-            insertData(TABLE_NAME, user, cols[0]);
-            User user2 = new User("002", "xiaoHong", "female", "18", "18757912212", "214214@csdn.com");
-            insertData(TABLE_NAME, user2, cols[0]);
-            List<User> list = getAllData(TABLE_NAME);
 
-
-            System.out.println("--------------------插入两条数据后--------------------");
-            for (User user3 : list){
-                System.out.println(user3.toString());
+            for (int i = 0; i < 5000; i++) {
+                Map<String, String> prof = RandomValue.getProfile();
+                User user = new User(
+                        "u_" + RandomValue.getNum(4, 10) + i,
+                        prof.get(RandomValue.ATTR.Name.name()),
+                        prof.get(RandomValue.ATTR.Gender.name()),
+                        RandomValue.getNum(16, 80),
+                        prof.get(RandomValue.ATTR.Phone.name()),
+                        prof.get(RandomValue.ATTR.Email.name())
+                );
+                insertData(TABLE_NAME, user, cols[0]);
             }
-            System.out.println("--------------------获取原始数据-----------------------");
-
+            List<User> users = getAllData(TABLE_NAME);
+            for (User u : users) {
+                System.out.println(u.toString());
+            }
 
             getNoDealData(TABLE_NAME);
             System.out.println("--------------------根据rowKey查询--------------------");
-            User user4 = getDataByRowKey(TABLE_NAME, "user-001");
+            User user4 = getDataByRowKey(TABLE_NAME, "user-k-u_967");
             System.out.println(user4.toString());
 
-
             System.out.println("--------------------获取指定单条数据-------------------");
-            String user_phone = getCellData(TABLE_NAME, "user-001", cols[0], "phone");
+            String user_phone = getCellData(TABLE_NAME, "user-k-u_953", cols[0], "phone");
             System.out.println(user_phone);
-            User user5 = new User("test-003", "xiaoguang","man", "22", "12312132214", "856832@csdn.com");
-            insertData(TABLE_NAME, user5, cols[0]);
-            List<User> list2 = getAllData(TABLE_NAME);
-
-
-            System.out.println("--------------------插入测试数据后--------------------");
-            for (User user6 : list2){
-                System.out.println(user6.toString());
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
+
 
     //连接集群
     public static Connection initHbase() throws IOException {
-
+        // 配置内容参见hbase-site.xml文件.
         Configuration configuration = HBaseConfiguration.create();
         configuration.set("hbase.zookeeper.property.clientPort", "2181");
         configuration.set("hbase.zookeeper.quorum", "node01.test.bigdata.hbh,node02.test.bigdata.hbh,node03.test.bigdata.hbh");
         configuration.set("zookeeper.znode.parent", "/hbase-unsecure");
         // 集群配置↓
-        //configuration.set("hbase.zookeeper.quorum", "101.236.39.141,101.236.46.114,101.236.46.113");
-//        configuration.set("hbase.master", "127.0.0.1:60000");
         return ConnectionFactory.createConnection(configuration);
     }
 
     // 插入数据
     public static void insertData(String tableName, User user, String cfName) throws IOException {
         TableName tablename = TableName.valueOf(tableName);
-        Put put = new Put(("user-" + user.getId()).getBytes());
+        Put put = new Put((user.getId()).getBytes());
         //参数：1.列族名  2.列名  3.值
-        byte [] bytes = cfName.getBytes();
-        put.addColumn(bytes, "username".getBytes(), user.getUsername().getBytes()) ;
-        put.addColumn(bytes, "age".getBytes(), user.getAge().getBytes()) ;
-        put.addColumn(bytes, "gender".getBytes(), user.getGender().getBytes()) ;
+        byte[] bytes = cfName.getBytes();
+        put.addColumn(bytes, "username".getBytes(), user.getUsername().getBytes());
+        put.addColumn(bytes, "age".getBytes(), Bytes.toBytes(user.getAge()));
+        put.addColumn(bytes, "gender".getBytes(), user.getGender().getBytes());
         put.addColumn(bytes, "phone".getBytes(), user.getPhone().getBytes());
         put.addColumn(bytes, "email".getBytes(), user.getEmail().getBytes());
         Table table = HBASE_CONNECTION.getTable(tablename);
@@ -101,13 +97,12 @@ public class ClientApi {
     }
 
     //获取原始数据
-    public static void getNoDealData(String tableName){
+    public static void getNoDealData(String tableName) {
         try {
-            Table table= initHbase().getTable(TableName.valueOf(tableName));
+            Table table = initHbase().getTable(TableName.valueOf(tableName));
             Scan scan = new Scan();
-            scan.setReversed(true);
             ResultScanner resultScanner = table.getScanner(scan);
-            for(Result result: resultScanner){
+            for (Result result : resultScanner) {
                 System.out.println("scan:  " + result);
             }
         } catch (IOException e) {
@@ -123,24 +118,20 @@ public class ClientApi {
         User user = new User();
         user.setId(rowKey);
         //先判断是否有此条数据
-        if(!get.isCheckExistenceOnly()){
+        if (!get.isCheckExistenceOnly()) {
             Result result = table.get(get);
-            for (Cell cell : result.rawCells()){
-                String colName = Bytes.toString(cell.getQualifierArray(),cell.getQualifierOffset(),cell.getQualifierLength());
+            for (Cell cell : result.rawCells()) {
+                String colName = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
                 String value = Bytes.toString(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
-                if(colName.equals("username")){
+                if (colName.equals("username")) {
                     user.setUsername(value);
-                }
-                if(colName.equals("age")){
-                    user.setAge(value);
-                }
-                if (colName.equals("gender")){
+                } else if (colName.equals("age")) {
+                    user.setAge(Bytes.toInt(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()));
+                } else if (colName.equals("gender")) {
                     user.setGender(value);
-                }
-                if (colName.equals("phone")){
+                } else if (colName.equals("phone")) {
                     user.setPhone(value);
-                }
-                if (colName.equals("email")){
+                } else if (colName.equals("email")) {
                     user.setEmail(value);
                 }
             }
@@ -149,28 +140,31 @@ public class ClientApi {
     }
 
     //查询指定单cell内容
-    public static String getCellData(String tableName, String rowKey, String family, String col){
+    public static String getCellData(String tableName, String rowKey, String family, String col) {
 
         try {
             Table table = initHbase().getTable(TableName.valueOf(tableName));
-            String result = null;
             Get get = new Get(rowKey.getBytes());
-            if(!get.isCheckExistenceOnly()){
-                get.addColumn(Bytes.toBytes(family),Bytes.toBytes(col));
+            if (!get.isCheckExistenceOnly()) {
+                get.addColumn(Bytes.toBytes(family), Bytes.toBytes(col));
                 Result res = table.get(get);
                 byte[] resByte = res.getValue(Bytes.toBytes(family), Bytes.toBytes(col));
-                return result = Bytes.toString(resByte);
-            }else{
-                return result = "查询结果不存在";
+                return Bytes.toString(resByte);
+            } else {
+                return "查询结果不存在";
             }
         } catch (IOException e) {
             e.printStackTrace();
+            return "出现异常";
         }
-        return "出现异常";
     }
 
-    //查询指定表名中所有的数据
-    public static List<User> getAllData(String tableName){
+    /**
+     * 获取指定表的全部数据
+     * @param tableName     表名
+     * @return              返回用户列表
+     */
+    public static List<User> getAllData(String tableName) {
 
         Table table;
         List<User> list = new ArrayList<User>();
@@ -178,29 +172,25 @@ public class ClientApi {
             table = initHbase().getTable(TableName.valueOf(tableName));
             ResultScanner results = table.getScanner(new Scan());
             User user = null;
-            for (Result result : results){
+            for (Result result : results) {
                 String id = new String(result.getRow());
                 System.out.println("用户名:" + new String(result.getRow()));
                 user = new User();
-                for(Cell cell : result.rawCells()){
+                for (Cell cell : result.rawCells()) {
                     String row = Bytes.toString(cell.getRowArray(), cell.getRowOffset(), cell.getRowLength());
                     //String family =  Bytes.toString(cell.getFamilyArray(),cell.getFamilyOffset(),cell.getFamilyLength());
-                    String colName = Bytes.toString(cell.getQualifierArray(),cell.getQualifierOffset(),cell.getQualifierLength());
+                    String colName = Bytes.toString(cell.getQualifierArray(), cell.getQualifierOffset(), cell.getQualifierLength());
                     String value = Bytes.toString(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength());
                     user.setId(row);
-                    if(colName.equals("username")){
+                    if (colName.equals("username")) {
                         user.setUsername(value);
-                    }
-                    if(colName.equals("age")){
-                        user.setAge(value);
-                    }
-                    if (colName.equals("gender")){
+                    } else if (colName.equals("age")) {
+                        user.setAge(Bytes.toInt(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength()));
+                    } else if (colName.equals("gender")) {
                         user.setGender(value);
-                    }
-                    if (colName.equals("phone")){
+                    } else if (colName.equals("phone")) {
                         user.setPhone(value);
-                    }
-                    if (colName.equals("email")){
+                    } else if (colName.equals("email")) {
                         user.setEmail(value);
                     }
                 }
@@ -212,7 +202,14 @@ public class ClientApi {
         return list;
     }
 
-    //删除指定cell数据
+
+    /**
+     * 删除指定cell数据
+     *
+     * @param tableName     表名
+     * @param rowKey        rowKey
+     * @throws IOException  IO异常
+     */
     public static void deleteByRowKey(String tableName, String rowKey) throws IOException {
 
         Table table = initHbase().getTable(TableName.valueOf(tableName));
@@ -222,8 +219,12 @@ public class ClientApi {
         table.delete(delete);
     }
 
-    //删除表
-    public static void deleteTable(String tableName){
+
+    /**
+     * 删除指定表
+     * @param tableName 表名
+     */
+    public static void deleteTable(String tableName) {
 
         try {
             TableName tablename = TableName.valueOf(tableName);

@@ -7,7 +7,7 @@ public class User {
 
     private String gender;
 
-    private String age;
+    private int age;
 
     private String phone;
 
@@ -16,7 +16,7 @@ public class User {
     public User() {
     }
 
-    public User(String id, String username, String gender, String age, String phone, String email) {
+    public User(String id, String username, String gender, int age, String phone, String email) {
         this.id = id;
         this.username = username;
         this.gender = gender;
@@ -49,11 +49,11 @@ public class User {
         this.username = username;
     }
 
-    public String getAge() {
+    public int getAge() {
         return age;
     }
 
-    public void setAge(String age) {
+    public void setAge(int age) {
         this.age = age;
     }
 
@@ -71,5 +71,17 @@ public class User {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    @Override
+    public String toString() {
+        return "User{" +
+                "id='" + id + '\'' +
+                ", username='" + username + '\'' +
+                ", gender='" + gender + '\'' +
+                ", age=" + age +
+                ", phone='" + phone + '\'' +
+                ", email='" + email + '\'' +
+                '}';
     }
 }
