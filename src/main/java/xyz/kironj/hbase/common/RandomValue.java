@@ -109,7 +109,7 @@ public class RandomValue {
      * @return
      */
     public static Map<String, String> getProfile() {
-        Map<String, String> map = new HashMap<String, String>();
+        Map<String, String> map = new HashMap<String, String>(6);
         map.put(ATTR.Name.name(), getChineseName());
         map.put(ATTR.Gender.name(), name_sex);
         map.put(ATTR.Addr.name(), getRoad());
